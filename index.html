@@ -1,0 +1,1724 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Municipal Road Inspection | 靜態道路硬體 AI 巡檢系統</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.min.js"></script>
+  <style>
+    :root {
+      --bg: #f4f6f9;
+      --surface: #ffffff;
+      --surface-alt: #eef2f6;
+      --text: #0f172a;
+      --text-muted: #475569;
+      --border: #cbd5e1;
+      --primary: #0f294a;
+      --primary-hover: #1e40af;
+      --accent: #ea580c;
+      --accent-soft: #ffedd5;
+      --shadow: 0 4px 16px rgba(15, 41, 74, 0.08);
+      --radius: 10px;
+      --font-sans: 'Noto Sans TC', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      --font-display: 'Space Grotesk', 'Noto Sans TC', sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      font-family: var(--font-sans);
+      background-color: var(--bg);
+      color: var(--text);
+      line-height: 1.65;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* 導覽列 */
+    header.navbar {
+      background-color: var(--primary);
+      color: #ffffff;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
+    }
+
+    .nav-container {
+      max-width: 1140px;
+      margin: 0 auto;
+      padding: 0.85rem 1.25rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+      font-weight: 700;
+      font-size: 1.1rem;
+      letter-spacing: 0.02em;
+    }
+
+    .brand-badge {
+      background: var(--accent);
+      color: #fff;
+      font-family: var(--font-display);
+      font-size: 0.75rem;
+      padding: 0.15rem 0.45rem;
+      border-radius: 4px;
+      font-weight: 700;
+    }
+
+    .nav-links {
+      display: flex;
+      gap: 1.25rem;
+      align-items: center;
+      flex-wrap: wrap;
+      font-size: 0.9rem;
+    }
+
+    .nav-links a {
+      color: #e2e8f0;
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+
+    .nav-links a:hover {
+      color: #ffffff;
+    }
+
+    /* Hero 區塊 */
+    .hero {
+      background: linear-gradient(135deg, #0f294a 0%, #1e3a5f 100%);
+      color: #ffffff;
+      padding: 3.5rem 1.25rem;
+      border-bottom: 4px solid var(--accent);
+    }
+
+    .hero-inner {
+      max-width: 1140px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: center;
+      gap: 2rem;
+    }
+
+    .hero-tag {
+      display: inline-block;
+      background: rgba(234, 88, 12, 0.2);
+      border: 1px solid var(--accent);
+      color: #fdba74;
+      font-size: 0.82rem;
+      font-weight: 700;
+      padding: 0.25rem 0.75rem;
+      border-radius: 999px;
+      margin-bottom: 1rem;
+    }
+
+    .hero h1 {
+      font-size: clamp(1.75rem, 3.5vw, 2.5rem);
+      line-height: 1.25;
+      margin-bottom: 1rem;
+      font-weight: 700;
+    }
+
+    .hero p {
+      color: #cbd5e1;
+      max-width: 640px;
+      font-size: 1.05rem;
+      margin-bottom: 1.75rem;
+    }
+
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      background-color: var(--accent);
+      color: #ffffff;
+      font-weight: 700;
+      padding: 0.85rem 1.75rem;
+      border-radius: var(--radius);
+      text-decoration: none;
+      border: none;
+      cursor: pointer;
+      font-size: 1rem;
+      transition: transform 0.15s ease, background-color 0.2s ease, box-shadow 0.2s ease;
+      box-shadow: 0 4px 12px rgba(234, 88, 12, 0.35);
+    }
+
+    .btn-primary:hover {
+      background-color: #c2410c;
+      transform: translateY(-2px);
+    }
+
+    .btn-secondary {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      background-color: var(--surface);
+      color: var(--primary);
+      border: 1px solid var(--border);
+      font-weight: 600;
+      padding: 0.55rem 1rem;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 0.9rem;
+      transition: background-color 0.2s, border-color 0.2s;
+    }
+
+    .btn-secondary:hover:not(:disabled) {
+      background-color: var(--surface-alt);
+      border-color: var(--primary);
+    }
+
+    .btn-secondary:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    /* 主容器 */
+    main {
+      max-width: 1140px;
+      margin: 0 auto;
+      padding: 2.5rem 1.25rem 4rem;
+      display: flex;
+      flex-direction: column;
+      gap: 3rem;
+    }
+
+    section.card-section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 2rem;
+      box-shadow: var(--shadow);
+    }
+
+    .section-header {
+      border-left: 4px solid var(--accent);
+      padding-left: 0.85rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .section-header h2 {
+      font-size: 1.35rem;
+      color: var(--primary);
+      font-weight: 700;
+    }
+
+    .section-header p {
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      margin-top: 0.2rem;
+    }
+
+    /* 網格卡片 */
+    .grid-4 {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+      gap: 1.25rem;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1.25rem;
+    }
+
+    .feature-box {
+      background: var(--surface-alt);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.25rem;
+      transition: transform 0.2s ease;
+    }
+
+    .feature-box:hover {
+      transform: translateY(-2px);
+    }
+
+    .feature-box h3 {
+      font-size: 1.05rem;
+      color: var(--primary);
+      margin-bottom: 0.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+    }
+
+    .feature-box p {
+      font-size: 0.9rem;
+      color: var(--text-muted);
+    }
+
+    /* 圖例區塊 */
+    .legend-bar {
+      margin-top: 1.25rem;
+      padding: 0.85rem 1rem;
+      background: #f8fafc;
+      border: 1px dashed var(--border);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 1.25rem;
+      font-size: 0.9rem;
+    }
+
+    .legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-weight: 500;
+    }
+
+    .swatch-green {
+      width: 18px;
+      height: 18px;
+      background-color: #00FF00;
+      border: 1px solid #0f172a;
+      border-radius: 3px;
+      display: inline-block;
+    }
+
+    /* 表格樣式 */
+    .table-wrap {
+      overflow-x: auto;
+      margin-top: 0.75rem;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.92rem;
+    }
+
+    th, td {
+      border: 1px solid var(--border);
+      padding: 0.75rem 0.9rem;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background-color: var(--primary);
+      color: #ffffff;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    tr:nth-child(even) td {
+      background-color: #f8fafc;
+    }
+
+    /* 風險色票說明 */
+    .risk-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      margin-top: 1.25rem;
+    }
+
+    .pill {
+      color: #ffffff;
+      font-weight: 700;
+      font-size: 0.85rem;
+      padding: 0.35rem 0.8rem;
+      border-radius: 6px;
+    }
+
+    /* 流程圖步驟 */
+    .pipeline-steps {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+
+    .step-card {
+      background: var(--surface-alt);
+      border-top: 3px solid var(--primary);
+      padding: 1rem;
+      border-radius: 6px;
+    }
+
+    .step-num {
+      font-family: var(--font-display);
+      font-weight: 700;
+      color: var(--accent);
+      font-size: 0.85rem;
+      margin-bottom: 0.25rem;
+    }
+
+    /* 實作測試區 */
+    #test-zone {
+      border: 2px solid var(--primary);
+    }
+
+    .tips-banner {
+      background-color: var(--accent-soft);
+      border-left: 4px solid var(--accent);
+      padding: 0.9rem 1.1rem;
+      border-radius: 6px;
+      margin-bottom: 1.25rem;
+      font-size: 0.92rem;
+      color: #7c2d12;
+      display: flex;
+      align-items: flex-start;
+      gap: 0.65rem;
+    }
+
+    .upload-box {
+      border: 2px dashed #94a3b8;
+      background: #f8fafc;
+      border-radius: var(--radius);
+      padding: 1.5rem;
+      text-align: center;
+      margin-bottom: 1.25rem;
+      transition: border-color 0.2s, background-color 0.2s;
+    }
+
+    .upload-box:hover {
+      border-color: var(--accent);
+      background: #fff7ed;
+    }
+
+    input[type="file"] {
+      font-size: 0.95rem;
+      padding: 0.5rem;
+      max-width: 100%;
+    }
+
+    input[type="file"]:disabled {
+      cursor: not-allowed;
+      opacity: 0.6;
+    }
+
+    #status {
+      margin-top: 0.75rem;
+      font-weight: 700;
+      color: var(--primary);
+      font-size: 0.98rem;
+      min-height: 1.5em;
+    }
+
+    .canvas-container {
+      width: 100%;
+      background: #0f172a;
+      border-radius: 8px;
+      padding: 0.75rem;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 220px;
+      margin-bottom: 1.5rem;
+      overflow: hidden;
+    }
+
+    #outputCanvas {
+      max-width: 100%;
+      height: auto;
+      display: block;
+      border-radius: 4px;
+    }
+
+    /* 評估報告 */
+    #report {
+      display: none;
+      border: 2px solid var(--primary);
+      border-radius: var(--radius);
+      background: #ffffff;
+      padding: 1.75rem;
+      margin-top: 1.5rem;
+      animation: fadeIn 0.3s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .report-title-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 1rem;
+      border-bottom: 2px solid var(--surface-alt);
+      padding-bottom: 1rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .report-title-bar h3 {
+      font-size: 1.3rem;
+      color: var(--primary);
+    }
+
+    .report-actions {
+      display: flex;
+      gap: 0.6rem;
+      flex-wrap: wrap;
+    }
+
+    .report-summary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .summary-card {
+      background: var(--surface-alt);
+      padding: 1rem 1.2rem;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+    }
+
+    .summary-label {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      font-weight: 700;
+      margin-bottom: 0.35rem;
+    }
+
+    .summary-value {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .badge {
+      display: inline-block;
+      color: #ffffff;
+      font-weight: 700;
+      padding: 0.25rem 0.7rem;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      margin-right: 0.5rem;
+    }
+
+    table.detail th {
+      background-color: #334155;
+    }
+
+    .advice-box {
+      margin-top: 1.25rem;
+      background: #f8fafc;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.1rem 1.25rem;
+    }
+
+    .advice-box h4 {
+      color: var(--primary);
+      margin-bottom: 0.5rem;
+      font-size: 1rem;
+    }
+
+    #reportAdvice {
+      padding-left: 1.25rem;
+      color: var(--text);
+      font-size: 0.94rem;
+    }
+
+    #reportAdvice li {
+      margin-bottom: 0.35rem;
+    }
+
+    .report-disclaimer {
+      margin-top: 1.25rem;
+      padding-top: 0.85rem;
+      border-top: 1px dashed var(--border);
+      font-size: 0.83rem;
+      color: var(--text-muted);
+    }
+
+    /* 模組：門檻調整滑桿 */
+    .sliders-panel {
+      margin-top: 1.5rem;
+      background: var(--surface-alt);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.25rem;
+    }
+
+    .sliders-panel h4 {
+      font-size: 1rem;
+      color: var(--primary);
+      margin-bottom: 0.85rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+
+    .slider-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 1.25rem;
+    }
+
+    .slider-item label {
+      display: block;
+      font-size: 0.88rem;
+      font-weight: 700;
+      margin-bottom: 0.35rem;
+      color: var(--text);
+    }
+
+    .slider-item input[type="range"] {
+      width: 100%;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+
+    .slider-meta {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-top: 0.2rem;
+    }
+
+    /* 尚未支援列表 */
+    .unsupported-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 0.75rem;
+      list-style: none;
+    }
+
+    .unsupported-list li {
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      color: #991b1b;
+      padding: 0.65rem 0.9rem;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      font-weight: 500;
+    }
+
+    footer {
+      background: var(--primary);
+      color: #cbd5e1;
+      text-align: center;
+      padding: 2rem 1.25rem;
+      font-size: 0.88rem;
+    }
+
+    @media (max-width: 768px) {
+      .hero-inner {
+        grid-template-columns: 1fr;
+        text-align: left;
+      }
+      .hero-svg {
+        max-width: 140px;
+      }
+      section.card-section {
+        padding: 1.35rem;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      * {
+        animation: none !important;
+        transition: none !important;
+        scroll-behavior: auto !important;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 1. 導覽列 -->
+  <header class="navbar">
+    <div class="nav-container">
+      <div class="brand">
+        <span class="brand-badge">MUNICIPAL AI</span>
+        <span>市政府道路巡檢系統｜行穿線硬體評估平台</span>
+      </div>
+      <nav class="nav-links">
+        <a href="#capabilities">核心能力</a>
+        <a href="#criteria">評估標準</a>
+        <a href="#scenarios">辨識場景</a>
+        <a href="#architecture">系統架構</a>
+        <a href="#test-zone">巡檢測試區</a>
+      </nav>
+    </div>
+  </header>
+
+  <!-- 首頁大標 -->
+  <section class="hero">
+    <div class="hero-inner">
+      <div>
+        <span class="hero-tag">工務養護處・純地端瀏覽器 Edge AI 巡檢模組</span>
+        <h1>行人穿越道（斑馬線）硬體狀態與視野風險 AI 巡檢</h1>
+        <p>
+          透過瀏覽器內建 ONNX Runtime Web 執行 YOLO26n 模型，免上傳影像即可針對巡檢車或行車記錄器街景進行斑馬線標線清晰度、能見度、完整性與駕駛視野風險量化評估。
+        </p>
+        <a href="#test-zone" class="btn-primary">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          進入巡檢測試區
+        </a>
+      </div>
+      <!-- 內嵌幾何巡檢工程圖示 SVG -->
+      <div class="hero-svg" aria-hidden="true">
+        <svg width="170" height="170" viewBox="0 0 180 180" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="10" y="10" width="160" height="160" rx="20" fill="#16355c" stroke="#3b82f6" stroke-width="2"/>
+          <!-- 道路透視線 -->
+          <polygon points="45,155 72,65 108,65 135,155" fill="#0f172a" stroke="#64748b" stroke-width="2"/>
+          <!-- 斑馬線條紋 -->
+          <rect x="64" y="128" width="52" height="10" rx="2" fill="#f8fafc"/>
+          <rect x="69" y="108" width="42" height="9" rx="2" fill="#f8fafc"/>
+          <rect x="73" y="90" width="34" height="8" rx="2" fill="#f8fafc"/>
+          <rect x="76" y="74" width="28" height="7" rx="2" fill="#f8fafc"/>
+          <!-- AI 綠框準星 -->
+          <rect x="54" y="68" width="72" height="76" rx="4" stroke="#00FF00" stroke-width="3" stroke-dasharray="10 4"/>
+          <rect x="54" y="52" width="62" height="16" rx="2" fill="#00FF00"/>
+          <text x="58" y="63" fill="#0f172a" font-family="monospace" font-size="9.5" font-weight="bold">CROSSWALK</text>
+          <!-- 巡檢安全帽徽章 -->
+          <circle cx="136" cy="44" r="20" fill="#ea580c"/>
+          <path d="M124 46C124 39.3726 129.373 34 136 34C142.627 34 148 39.3726 148 46H124Z" fill="#ffffff"/>
+          <rect x="121" y="46" width="30" height="4" rx="2" fill="#ffffff"/>
+        </svg>
+      </div>
+    </div>
+  </section>
+
+  <main>
+    <!-- 2. 核心 AI 辨識能力 -->
+    <section id="capabilities" class="card-section">
+      <div class="section-header">
+        <h2>核心 AI 辨識能力與圖例說明</h2>
+        <p>專注於靜態道路標線硬體檢測與駕駛人視覺幾何分析</p>
+      </div>
+      <div class="grid-4">
+        <div class="feature-box">
+          <h3>01. 斑馬線目標偵測</h3>
+          <p>採用 Ultralytics YOLO26n 輕量化架構，自動定位街景影像中的行人穿越道（crosswalk）邊界框並輸出信心度。</p>
+        </div>
+        <div class="feature-box">
+          <h3>02. 標線像素狀態分析</h3>
+          <p>直接截取原圖偵測區域進行灰階直方圖對比與亮度統計，量化標線白漆磨損褪色與環境光線能見度。</p>
+        </div>
+        <div class="feature-box">
+          <h3>03. 駕駛視角空間評估</h3>
+          <p>依據邊界框與畫面邊緣的相對幾何比例，評估視線盲區距離、空間壓迫感及影像裁切完整性。</p>
+        </div>
+        <div class="feature-box">
+          <h3>04. 風險分級巡檢報告</h3>
+          <p>自動彙整五項硬體指標總分（0~7 分），產出低、中、高風險等級與對應養護或駕駛警示建議。</p>
+        </div>
+      </div>
+      <div class="legend-bar">
+        <strong>畫面標註圖例：</strong>
+        <span class="legend-item"><span class="swatch-green"></span> 綠色外框（#00FF00）：偵測到的斑馬線區域</span>
+        <span class="legend-item">🏷️ 標籤「crosswalk XX%」：模型對該區域為斑馬線的信心程度（信心 < 40% 已自動過濾）</span>
+      </div>
+    </section>
+
+    <!-- 3. 評估標準 -->
+    <section id="criteria" class="card-section">
+      <div class="section-header">
+        <h2>道路硬體危險度評估標準（預設值）</h2>
+        <p>當畫面中有多條斑馬線時，系統自動鎖定「信心度最高」的一條進行下列五項指標評分（滿分 7 分，門檻為教學示範用暫定值）</p>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>評估指標</th>
+              <th>計算方式</th>
+              <th>0 分（正常）</th>
+              <th>1 分（注意）</th>
+              <th>2 分（異常）</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>1. 標線清晰度</strong>（0~2 分）</td>
+              <td>框內灰階第 90 百分位 − 第 10 百分位（256 格直方圖）</td>
+              <td>對比度 ≥ 80（預設）</td>
+              <td>50 ≤ 對比度 < 80</td>
+              <td>對比度 < 50</td>
+            </tr>
+            <tr>
+              <td><strong>2. 框內能見度</strong>（0~2 分）</td>
+              <td>框內灰階像素平均值（0.299R + 0.587G + 0.114B）</td>
+              <td>70 ≤ 平均亮度 ≤ 200</td>
+              <td>40~70 或 200~230</td>
+              <td>< 40（過暗）或 > 230（過曝）</td>
+            </tr>
+            <tr>
+              <td><strong>3. 完整度</strong>（0~1 分）</td>
+              <td>框的左、右、上、下任一側距影像邊緣 < 影像對應尺寸 2%</td>
+              <td>四邊皆保留 ≥ 2% 安全邊距</td>
+              <td>任一側貼近影像邊緣（< 2%）</td>
+              <td>—</td>
+            </tr>
+            <tr>
+              <td><strong>4. 視線盲區</strong>（0~1 分，限駕駛視角）</td>
+              <td>底邊距離比例 = (圖高 − (y + h)) / 圖高</td>
+              <td>底邊距離比例 ≥ 0.18（預設）</td>
+              <td>底邊距離比例 < 0.18（預設）</td>
+              <td>—</td>
+            </tr>
+            <tr>
+              <td><strong>5. 空間壓迫</strong>（0~1 分，限駕駛視角）</td>
+              <td>高度佔比 = h / 圖高</td>
+              <td>高度佔比 ≤ 0.25（預設）</td>
+              <td>高度佔比 > 0.25（預設）</td>
+              <td>—</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="risk-pills">
+        <span class="pill" style="background-color:#2e7d32;">低風險：總分 ≤ 1 分</span>
+        <span class="pill" style="background-color:#ef6c00;">中風險：總分 2 ~ 3 分</span>
+        <span class="pill" style="background-color:#c62828;">高風險：總分 ≥ 4 分</span>
+        <span class="pill" style="background-color:#616161;">無法評估：未偵測到斑馬線</span>
+      </div>
+    </section>
+
+    <!-- 4. 交通風險與辨識場景 -->
+    <section id="scenarios" class="card-section">
+      <div class="section-header">
+        <h2>交通風險與辨識場景對照表</h2>
+        <p>說明不同道路現場狀況如何透過影像特徵轉化為巡檢風險指標</p>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>風險類別</th>
+              <th>辨識場景描述</th>
+              <th>偵測方式與系統判讀結果</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>標線褪色或磨損</strong></td>
+              <td>長期車輪輾壓導致白漆剝落、與柏油路面色差不明顯</td>
+              <td>透過灰階 P90−P10 對比度下降偵測，判讀為標線清晰度扣分（1~2 分），建議重新刨鋪繪製</td>
+            </tr>
+            <tr>
+              <td><strong>光線過暗或過曝</strong></td>
+              <td>夜間照明不足、隧道口眩光或正午強光直射水面反光</td>
+              <td>計算框內平均灰階亮度落於 <70 或 >200 區間，判讀為能見度風險（1~2 分），建議改善路燈或重拍</td>
+            </tr>
+            <tr>
+              <td><strong>斑馬線被切掉或遮住</strong></td>
+              <td>鏡頭角度偏斜、大型車輛遮擋或斑馬線延伸出畫面邊界</td>
+              <td>偵測框邊界貼近影像四邊 2% 內，完整度計 1 分並標示貼邊方位，提醒調整鏡頭或排除遮蔽</td>
+            </tr>
+            <tr>
+              <td><strong>視線盲區</strong></td>
+              <td>車輛已極度逼近停止線或斑馬線，車頭前方存在視覺死角</td>
+              <td>底邊距離比例小於 0.18，計 1 分（限駕駛視角），提示減速慢行並注意車頭近端死角</td>
+            </tr>
+            <tr>
+              <td><strong>空間壓迫</strong></td>
+              <td>斑馬線在畫面中垂直佔比過大，反應緩衝距離嚴重不足</td>
+              <td>框高佔圖高比例大於 0.25，計 1 分（限駕駛視角），提示提前減速預留煞車距離</td>
+            </tr>
+            <tr>
+              <td><strong>綜合分級</strong></td>
+              <td>多重硬體缺失同時發生（例如：夜間照明差且標線嚴重磨損）</td>
+              <td>累加五項指標總分（0~7 分），達 4 分以上歸類為「高風險」並優先列入養護派工清單</td>
+            </tr>
+            <tr>
+              <td><strong>未偵測到斑馬線</strong></td>
+              <td>標線幾乎完全磨滅、嚴重積水覆蓋，或拍攝角度未涵蓋路口</td>
+              <td>模型無信心 ≥0.4 之輸出，顯示「無法評估（灰）」，建議確認現場標線狀態或更換清晰正面照片</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 5. 尚未支援說明 -->
+    <section class="card-section">
+      <div class="section-header">
+        <h2>系統能力邊界與尚未支援項目說明</h2>
+        <p>本模型為單一類別（crosswalk）靜態標線偵測模型，不包含動態交通參與者與執法行為判讀</p>
+      </div>
+      <ul class="unsupported-list">
+        <li>🚫 紅綠燈號誌位置與燈號顏色（紅／黃／綠燈）判讀</li>
+        <li>🚫 行人、汽機車、自行車等動態目標偵測與軌跡追蹤</li>
+        <li>🚫 車輛未禮讓行人（路口停讓違規）自動舉發</li>
+        <li>🚫 紅黃線違規停車或併排停車偵測</li>
+        <li>🚫 機車騎士未戴安全帽等交通行為類違規</li>
+      </ul>
+      <p style="margin-top:0.85rem; font-size:0.88rem; color:var(--text-muted);">
+        ※ 上述功能需額外擴充資料集標註類別、重新訓練多類別物件偵測模型並結合時序追蹤邏輯方可實現。
+      </p>
+    </section>
+
+    <!-- 6. 教學與架構 & 7. 技術特色 -->
+    <section id="architecture" class="card-section">
+      <div class="section-header">
+        <h2>系統建置架構與核心技術特色</h2>
+        <p>從資料標註訓練到純瀏覽器地端推理的完整技術鏈路</p>
+      </div>
+
+      <div class="pipeline-steps">
+        <div class="step-card">
+          <div class="step-num">STEP 01｜資料標註</div>
+          <strong>Roboflow 標註</strong>
+          <p style="font-size:0.86rem; color:var(--text-muted); margin-top:0.25rem;">彙整道路街景影像，精確框選 crosswalk 類別並進行資料增強。</p>
+        </div>
+        <div class="step-card">
+          <div class="step-num">STEP 02｜模型訓練</div>
+          <strong>Google Colab 訓練 YOLO</strong>
+          <p style="font-size:0.86rem; color:var(--text-muted); margin-top:0.25rem;">使用 Ultralytics YOLO26n 進行遷移學習與驗證集調優。</p>
+        </div>
+        <div class="step-card">
+          <div class="step-num">STEP 03｜格式轉換</div>
+          <strong>匯出 ONNX 模型</strong>
+          <p style="font-size:0.86rem; color:var(--text-muted); margin-top:0.25rem;">輸出標準 [1,3,640,640] 輸入與 [1,5,8400] 張量格式之 best.onnx。</p>
+        </div>
+        <div class="step-card">
+          <div class="step-num">STEP 04｜前端推論</div>
+          <strong>ONNX Runtime Web</strong>
+          <p style="font-size:0.86rem; color:var(--text-muted); margin-top:0.25rem;">瀏覽器直接載入模型執行前處理、推論、NMS 與像素評分。</p>
+        </div>
+      </div>
+
+      <p style="margin-top:1rem; font-size:0.88rem; background:#f1f5f9; padding:0.75rem 1rem; border-radius:6px; color:var(--primary);">
+        <strong>工程師參數提示：</strong>本網頁所有評分門檻與信心度設定皆集中定義於程式碼最上方的 <code>CONFIG</code> 常數區，巡檢單位可依實際鏡頭焦距與養護規範直接調整。
+      </p>
+
+      <div class="grid-3" style="margin-top:1.5rem;">
+        <div class="feature-box">
+          <h3>🔒 純地端推論（隱私零外流）</h3>
+          <p>所有影像解碼與神經網路運算皆在使用者裝置瀏覽器記憶體完成，街景照片完全不會上傳至任何外部伺服器。</p>
+        </div>
+        <div class="feature-box">
+          <h3>📐 YOLO 空間比例標定</h3>
+          <p>採用等比例 Letterbox 縮放與精準座標還原演算法，避免畫面拉伸變形影響標線幾何比例判讀。</p>
+        </div>
+        <div class="feature-box">
+          <h3>⚙️ 像素分析與評分決策引擎</h3>
+          <p>獨立針對原始影像裁切區域計算 256 階灰階分佈與邊界距離，結合規則引擎即時產出可解釋的巡檢報告。</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 8. 實作測試區 -->
+    <section id="test-zone" class="card-section">
+      <div class="section-header">
+        <h2>道路巡檢實作測試區</h2>
+        <p>上傳街景影像進行即時斑馬線辨識與硬體風險評估</p>
+      </div>
+
+      <div class="legend-bar" style="margin-top:0; margin-bottom:1rem;">
+        <strong>標註圖例：</strong>
+        <span class="legend-item"><span class="swatch-green"></span> 斑馬線邊界框（#00FF00）</span>
+        <span class="legend-item"><code>crosswalk 信心%</code>：模型偵測信心指數</span>
+      </div>
+
+      <div class="tips-banner">
+        <span style="font-size:1.25rem;">📷</span>
+        <div>
+          <strong>拍攝與取樣建議：</strong>請使用<strong>行車記錄器視角（鏡頭朝前水平拍攝）</strong>之街景照片；避免高空俯拍、嚴重側拍或逆光過曝畫面，以確保「視線盲區」與「空間壓迫」指標具備實際道路參考價值。
+        </div>
+      </div>
+
+      <div class="upload-box">
+        <label for="imageInput" style="display:block; font-weight:700; margin-bottom:0.6rem; color:var(--primary);">
+          選擇巡檢街景照片（支援 JPG / PNG / WebP）
+        </label>
+        <input type="file" id="imageInput" accept="image/*" disabled />
+        <div id="status">正在初始化 ONNX Runtime Web 並載入模型 ./best.onnx，請稍候...</div>
+      </div>
+
+      <div class="canvas-container">
+        <canvas id="outputCanvas"></canvas>
+      </div>
+
+      <!-- 模組：門檻調整滑桿 -->
+      <div class="sliders-panel">
+        <h4>
+          <span>🎛️ 巡檢評估門檻動態微調（調整後即時重算報告）</span>
+          <button type="button" id="resetThresholdsBtn" class="btn-secondary" style="font-size:0.8rem; padding:0.35rem 0.75rem;">恢復預設門檻</button>
+        </h4>
+        <div class="slider-grid">
+          <div class="slider-item">
+            <label for="sliderBlindSpot">視線盲區比例門檻：<span id="valBlindSpot">0.18</span></label>
+            <input type="range" id="sliderBlindSpot" min="0.05" max="0.40" step="0.01" value="0.18" />
+            <div class="slider-meta">
+              <span>預設值：0.18</span>
+              <span>低於此底邊距離比例計 1 分</span>
+            </div>
+          </div>
+          <div class="slider-item">
+            <label for="sliderOppression">空間壓迫比例門檻：<span id="valOppression">0.25</span></label>
+            <input type="range" id="sliderOppression" min="0.10" max="0.50" step="0.01" value="0.25" />
+            <div class="slider-meta">
+              <span>預設值：0.25</span>
+              <span>高於此高度佔比計 1 分</span>
+            </div>
+          </div>
+          <div class="slider-item">
+            <label for="sliderClarity">標線清晰度門檻（0分下限）：<span id="valClarity">80</span></label>
+            <input type="range" id="sliderClarity" min="40" max="130" step="1" value="80" />
+            <div class="slider-meta">
+              <span>預設值：80（1分下限固定為 50）</span>
+              <span>對比度 ≥ 此值計 0 分</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 評估報告外框（預設隱藏） -->
+      <div id="report">
+        <div class="report-title-bar">
+          <h3>靜態道路硬體危險度評估報告</h3>
+          <!-- 模組：下載按鈕 -->
+          <div class="report-actions">
+            <button type="button" id="downloadImgBtn" class="btn-secondary">⬇️ 下載標註圖片 (PNG)</button>
+            <button type="button" id="downloadTxtBtn" class="btn-secondary">📄 下載報告文字 (.txt)</button>
+          </div>
+        </div>
+
+        <div class="report-summary-grid">
+          <div class="summary-card">
+            <div class="summary-label">辨識目標</div>
+            <div class="summary-value" id="reportTargets">—</div>
+          </div>
+          <div class="summary-card">
+            <div class="summary-label">風險等級</div>
+            <div class="summary-value" id="reportLevel">—</div>
+          </div>
+        </div>
+
+        <div class="table-wrap">
+          <table class="detail" id="reportDetail">
+            <thead>
+              <tr>
+                <th>評估指標</th>
+                <th>實測數據與狀態</th>
+                <th>項目得分</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+
+        <div class="advice-box">
+          <h4>系統巡檢建議</h4>
+          <ul id="reportAdvice"></ul>
+        </div>
+
+        <div class="report-disclaimer">
+          註：視線盲區與空間壓迫限駕駛視角（行車記錄器、鏡頭朝前水平拍攝）；門檻為教學示範用，僅供初步參考，不能取代現場勘查。
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- 9. 頁尾 -->
+  <footer>
+    <p>市政府道路巡檢系統｜靜態道路硬體 AI 辨識與危險度評估示範平台</p>
+    <p style="margin-top:0.35rem; font-size:0.8rem; opacity:0.8;">Powered by ONNX Runtime Web & Ultralytics YOLO26n（全地端瀏覽器運算架構）</p>
+  </footer>
+
+  <script>
+    // =========================================================================
+    // 系統評分與推論門檻常數設定區（所有預設門檻皆集中於此）
+    // =========================================================================
+    const CONFIG = {
+      MODEL_PATH: './best.onnx',
+      INPUT_SIZE: 640,
+      PAD_COLOR: [114, 114, 114],
+      CONF_THRESHOLD: 0.4,
+      IOU_THRESHOLD: 0.45,
+      TARGET_CLASS_ID: 0, // 0 = crosswalk
+
+      // 像素裁切分析縮放上限
+      MAX_CROP_LONG_EDGE: 256,
+
+      // 五項指標預設門檻
+      CLARITY_HIGH_THRESHOLD: 80,      // >= 80 -> 0 分
+      CLARITY_MID_THRESHOLD: 50,       // 50 ~ <80 -> 1 分；< 50 -> 2 分
+
+      VISIBILITY_GOOD_MIN: 70,         // 70 ~ 200 -> 0 分
+      VISIBILITY_GOOD_MAX: 200,
+      VISIBILITY_WARN_MIN: 40,         // 40 ~ <70 或 >200 ~ 230 -> 1 分
+      VISIBILITY_WARN_MAX: 230,        // <40 或 >230 -> 2 分
+
+      EDGE_MARGIN_RATIO: 0.02,         // 距邊緣小於影像尺寸 2% -> 1 分
+      BLIND_SPOT_RATIO: 0.18,          // 底邊距離比例 < 0.18 -> 1 分
+      OPPRESSION_RATIO: 0.25,          // 高度佔比 > 0.25 -> 1 分
+
+      // 總分風險分級門檻
+      RISK_LOW_MAX: 1,                 // <= 1 低風險
+      RISK_MID_MAX: 3                  // 2 ~ 3 中風險；>= 4 高風險
+    };
+
+    // 目前作用中的動態門檻（受滑桿控制）
+    let activeThresholds = {
+      blindSpotRatio: CONFIG.BLIND_SPOT_RATIO,
+      oppressionRatio: CONFIG.OPPRESSION_RATIO,
+      clarityHigh: CONFIG.CLARITY_HIGH_THRESHOLD
+    };
+
+    // 全域狀態保存（供滑桿重算與下載功能使用）
+    let ortSession = null;
+    let lastDetectionState = {
+      imageElement: null,
+      boxes: [],
+      imgWidth: 0,
+      imgHeight: 0,
+      reportTextCache: ''
+    };
+
+    // DOM 元素參照
+    const imageInputEl = document.getElementById('imageInput');
+    const statusEl = document.getElementById('status');
+    const outputCanvasEl = document.getElementById('outputCanvas');
+    const reportEl = document.getElementById('report');
+    const reportTargetsEl = document.getElementById('reportTargets');
+    const reportLevelEl = document.getElementById('reportLevel');
+    const reportDetailEl = document.getElementById('reportDetail');
+    const reportAdviceEl = document.getElementById('reportAdvice');
+
+    // 滑桿 DOM
+    const sliderBlindSpot = document.getElementById('sliderBlindSpot');
+    const sliderOppression = document.getElementById('sliderOppression');
+    const sliderClarity = document.getElementById('sliderClarity');
+    const valBlindSpot = document.getElementById('valBlindSpot');
+    const valOppression = document.getElementById('valOppression');
+    const valClarity = document.getElementById('valClarity');
+    const resetThresholdsBtn = document.getElementById('resetThresholdsBtn');
+
+    // 下載按鈕 DOM
+    const downloadImgBtn = document.getElementById('downloadImgBtn');
+    const downloadTxtBtn = document.getElementById('downloadTxtBtn');
+
+    // =========================================================================
+    // 1. 初始化載入 ONNX 模型
+    // =========================================================================
+    async function initModel() {
+      try {
+        imageInputEl.disabled = true;
+        statusEl.textContent = '模型載入中（./best.onnx），請稍候...';
+        statusEl.style.color = '#0f294a';
+
+        ortSession = await ort.InferenceSession.create(CONFIG.MODEL_PATH, {
+          executionProviders: ['wasm']
+        });
+
+        imageInputEl.disabled = false;
+        statusEl.textContent = '模型載入完成！請選擇街景照片開始道路巡檢辨識。';
+        statusEl.style.color = '#2e7d32';
+      } catch (err) {
+        console.error('ONNX 模型載入失敗:', err);
+        imageInputEl.disabled = true;
+        statusEl.textContent = `模型載入失敗：無法讀取 ${CONFIG.MODEL_PATH}（${err.message || err}）。請確認檔案位於同層目錄並透過 HTTP/HTTPS 伺服器開啟網頁。`;
+        statusEl.style.color = '#c62828';
+      }
+    }
+
+    // =========================================================================
+    // 2. 前處理：Letterbox 等比例縮放 + 補灰邊 + 轉 CHW Float32Tensor
+    // =========================================================================
+    function preprocessImage(img) {
+      const origW = img.naturalWidth || img.width;
+      const origH = img.naturalHeight || img.height;
+      const targetSize = CONFIG.INPUT_SIZE;
+
+      const scale = Math.min(targetSize / origW, targetSize / origH);
+      const newW = Math.round(origW * scale);
+      const newH = Math.round(origH * scale);
+      const padX = (targetSize - newW) / 2;
+      const padY = (targetSize - newH) / 2;
+
+      const prepCanvas = document.createElement('canvas');
+      prepCanvas.width = targetSize;
+      prepCanvas.height = targetSize;
+      const ctx = prepCanvas.getContext('2d');
+
+      // 填充灰色背景 rgb(114, 114, 114)
+      ctx.fillStyle = `rgb(${CONFIG.PAD_COLOR[0]}, ${CONFIG.PAD_COLOR[1]}, ${CONFIG.PAD_COLOR[2]})`;
+      ctx.fillRect(0, 0, targetSize, targetSize);
+
+      // 置中繪製縮放後影像
+      ctx.drawImage(img, 0, 0, origW, origH, padX, padY, newW, newH);
+
+      const imgData = ctx.getImageData(0, 0, targetSize, targetSize).data;
+      const area = targetSize * targetSize;
+      const floatData = new Float32Array(3 * area);
+
+      // RGB 0~1，通道順序 CHW（先全部 R，再 G，再 B）
+      for (let i = 0; i < area; i++) {
+        const offset = i * 4;
+        floatData[i] = imgData[offset] / 255.0;             // R
+        floatData[area + i] = imgData[offset + 1] / 255.0;  // G
+        floatData[2 * area + i] = imgData[offset + 2] / 255.0; // B
+      }
+
+      const tensor = new ort.Tensor('float32', floatData, [1, 3, targetSize, targetSize]);
+      return { tensor, scale, padX, padY, origW, origH };
+    }
+
+    // =========================================================================
+    // 3. 後處理：解析 [1, 4+numClasses, numBoxes] 與單類別 NMS
+    // =========================================================================
+    function computeIoU(boxA, boxB) {
+      const x1 = Math.max(boxA.x1, boxB.x1);
+      const y1 = Math.max(boxA.y1, boxB.y1);
+      const x2 = Math.min(boxA.x2, boxB.x2);
+      const y2 = Math.min(boxA.y2, boxB.y2);
+
+      const interW = Math.max(0, x2 - x1);
+      const interH = Math.max(0, y2 - y1);
+      const interArea = interW * interH;
+
+      const areaA = Math.max(0, boxA.x2 - boxA.x1) * Math.max(0, boxA.y2 - boxA.y1);
+      const areaB = Math.max(0, boxB.x2 - boxB.x1) * Math.max(0, boxB.y2 - boxB.y1);
+      const unionArea = areaA + areaB - interArea;
+
+      return unionArea > 0 ? interArea / unionArea : 0;
+    }
+
+    function postprocessOutput(outputTensor, meta) {
+      const dims = outputTensor.dims; // 預期 [1, 5, 8400] 或 [1, 4+C, N]
+      const data = outputTensor.data;
+      const numChannels = dims[1];
+      const numBoxes = dims[2];
+      const numClasses = numChannels - 4;
+
+      if (numClasses < 1) {
+        throw new Error(`模型輸出維度異常：${JSON.stringify(dims)}`);
+      }
+
+      const { scale, padX, padY, origW, origH } = meta;
+      const candidates = [];
+
+      for (let i = 0; i < numBoxes; i++) {
+        // 僅取類別 0（crosswalk）分數，分數已是 0~1，不套 sigmoid
+        const score = data[(4 + CONFIG.TARGET_CLASS_ID) * numBoxes + i];
+        if (score < CONFIG.CONF_THRESHOLD) continue;
+
+        const cx = data[0 * numBoxes + i];
+        const cy = data[1 * numBoxes + i];
+        const w = data[2 * numBoxes + i];
+        const h = data[3 * numBoxes + i];
+
+        // 座標還原至原圖尺度並限制在原圖範圍內
+        let x1 = (cx - w / 2 - padX) / scale;
+        let y1 = (cy - h / 2 - padY) / scale;
+        let x2 = (cx + w / 2 - padX) / scale;
+        let y2 = (cy + h / 2 - padY) / scale;
+
+        x1 = Math.max(0, Math.min(origW, x1));
+        y1 = Math.max(0, Math.min(origH, y1));
+        x2 = Math.max(0, Math.min(origW, x2));
+        y2 = Math.max(0, Math.min(origH, y2));
+
+        const boxW = x2 - x1;
+        const boxH = y2 - y1;
+        if (boxW <= 1 || boxH <= 1) continue;
+
+        candidates.push({
+          x1,
+          y1,
+          x2,
+          y2,
+          w: boxW,
+          h: boxH,
+          score
+        });
+      }
+
+      // 依信心度降冪排序並進行單一類別 NMS
+      candidates.sort((a, b) => b.score - a.score);
+      const selected = [];
+
+      while (candidates.length > 0) {
+        const current = candidates.shift();
+        selected.push(current);
+
+        for (let i = candidates.length - 1; i >= 0; i--) {
+          if (computeIoU(current, candidates[i]) > CONFIG.IOU_THRESHOLD) {
+            candidates.splice(i, 1);
+          }
+        }
+      }
+
+      return selected;
+    }
+
+    // =========================================================================
+    // 4. 繪製原圖與辨識框（綠色 #00FF00 + 標籤「crosswalk 信心%」）
+    // =========================================================================
+    function drawDetections(img, boxes) {
+      const origW = img.naturalWidth || img.width;
+      const origH = img.naturalHeight || img.height;
+
+      outputCanvasEl.width = origW;
+      outputCanvasEl.height = origH;
+      const ctx = outputCanvasEl.getContext('2d');
+
+      // 繪製乾淨原圖
+      ctx.drawImage(img, 0, 0, origW, origH);
+
+      // 線寬與字體隨原圖大小縮放
+      const scaleRef = Math.max(origW, origH);
+      const lineWidth = Math.max(2, Math.round(scaleRef / 280));
+      const fontSize = Math.max(14, Math.round(scaleRef / 42));
+
+      ctx.font = `bold ${fontSize}px "Space Grotesk", "Noto Sans TC", sans-serif`;
+      ctx.textBaseline = 'top';
+
+      boxes.forEach((box) => {
+        const confPercent = (box.score * 100).toFixed(1);
+        const label = `crosswalk ${confPercent}%`;
+
+        // 畫綠色框
+        ctx.strokeStyle = '#00FF00';
+        ctx.lineWidth = lineWidth;
+        ctx.strokeRect(box.x1, box.y1, box.w, box.h);
+
+        // 標籤背景與文字
+        const textMetrics = ctx.measureText(label);
+        const padH = Math.round(fontSize * 0.35);
+        const padV = Math.round(fontSize * 0.22);
+        const tagW = textMetrics.width + padH * 2;
+        const tagH = fontSize + padV * 2;
+
+        const tagX = Math.max(0, Math.min(origW - tagW, box.x1));
+        const tagY = box.y1 - tagH >= 0 ? box.y1 - tagH : box.y1;
+
+        ctx.fillStyle = '#00FF00';
+        ctx.fillRect(tagX, tagY, tagW, tagH);
+
+        ctx.fillStyle = '#0f172a';
+        ctx.fillText(label, tagX + padH, tagY + padV);
+      });
+    }
+
+    // =========================================================================
+    // 5. 評估報告計算（從原圖裁切最高信心框並轉灰階分析）
+    // =========================================================================
+    function analyzeCrosswalkCrop(img, box) {
+      const sx = Math.max(0, Math.floor(box.x1));
+      const sy = Math.max(0, Math.floor(box.y1));
+      const sw = Math.max(1, Math.floor(box.w));
+      const sh = Math.max(1, Math.floor(box.h));
+
+      // 縮小到最長邊 256 像素再計算
+      const maxEdge = CONFIG.MAX_CROP_LONG_EDGE;
+      const cropScale = Math.min(1, maxEdge / Math.max(sw, sh));
+      const dw = Math.max(1, Math.round(sw * cropScale));
+      const dh = Math.max(1, Math.round(sh * cropScale));
+
+      const cropCanvas = document.createElement('canvas');
+      cropCanvas.width = dw;
+      cropCanvas.height = dh;
+      const ctx = cropCanvas.getContext('2d');
+
+      // 必須從「原圖」裁切，不可從畫了框的 outputCanvas 取
+      ctx.drawImage(img, sx, sy, sw, sh, 0, 0, dw, dh);
+
+      const pixels = ctx.getImageData(0, 0, dw, dh).data;
+      const totalPixels = dw * dh;
+      const hist = new Uint32Array(256);
+      let graySum = 0;
+
+      for (let i = 0; i < totalPixels; i++) {
+        const idx = i * 4;
+        const r = pixels[idx];
+        const g = pixels[idx + 1];
+        const b = pixels[idx + 2];
+        const gray = 0.299 * r + 0.587 * g + 0.114 * b;
+        graySum += gray;
+        const bin = Math.max(0, Math.min(255, Math.round(gray)));
+        hist[bin]++;
+      }
+
+      const meanGray = graySum / totalPixels;
+
+      // 用 256 格直方圖計算第 10 百分位與第 90 百分位
+      const p10Target = totalPixels * 0.10;
+      const p90Target = totalPixels * 0.90;
+      let cumulative = 0;
+      let p10 = 0;
+      let p90 = 255;
+      let foundP10 = false;
+
+      for (let bin = 0; bin < 256; bin++) {
+        cumulative += hist[bin];
+        if (!foundP10 && cumulative >= p10Target) {
+          p10 = bin;
+          foundP10 = true;
+        }
+        if (cumulative >= p90Target) {
+          p90 = bin;
+          break;
+        }
+      }
+
+      const contrast = p90 - p10;
+      return { contrast, meanGray, p10, p90 };
+    }
+
+    function evaluateAndRenderReport() {
+      const { imageElement, boxes, imgWidth, imgHeight } = lastDetectionState;
+      if (!imageElement) return;
+
+      const tbody = reportDetailEl.querySelector('tbody');
+      tbody.innerHTML = '';
+      reportAdviceEl.innerHTML = '';
+
+      // 狀況 A：未偵測到斑馬線
+      if (!boxes || boxes.length === 0) {
+        reportTargetsEl.textContent = '0 條斑馬線（未檢出有效目標）';
+        reportLevelEl.innerHTML = `<span class="badge" style="background-color:#616161;">無法評估</span> 總分 — / 7`;
+
+        const emptyRow = document.createElement('tr');
+        emptyRow.innerHTML = `<td colspan="3" style="text-align:center; color:#475569;">畫面中未偵測到信心度 ≥ ${(CONFIG.CONF_THRESHOLD * 100).toFixed(0)}% 之斑馬線，無法進行指標量化。</td>`;
+        tbody.appendChild(emptyRow);
+
+        const advices = [
+          '未偵測到斑馬線：請現場確認該路口標線是否已嚴重磨損、褪色剝落，或遭車輛、積水與施工物遮擋。',
+          '取樣重拍建議：請調整行車記錄器或拍攝角度，確保鏡頭朝前水平拍攝且路面標線完整清晰入鏡後重新檢測。'
+        ];
+        advices.forEach((txt) => {
+          const li = document.createElement('li');
+          li.textContent = txt;
+          reportAdviceEl.appendChild(li);
+        });
+
+        lastDetectionState.reportTextCache = buildReportPlainText(
+          '0 條斑馬線',
+          '無法評估 (總分 — / 7)',
+          [],
+          advices
+        );
+        reportEl.style.display = 'block';
+        return;
+      }
+
+      // 狀況 B：有多條斑馬線時，以信心最高的一條（已依 score 降冪排序，取 index 0）做分析
+      const topBox = boxes[0];
+      const topConfPct = (topBox.score * 100).toFixed(1);
+      reportTargetsEl.textContent = `共 ${boxes.length} 條斑馬線（以最高信心者分析：${topConfPct}%）`;
+
+      // 像素分析
+      const { contrast, meanGray } = analyzeCrosswalkCrop(imageElement, topBox);
+
+      // 1. 標線清晰度（0~2 分）
+      let clarityScore = 0;
+      if (contrast >= activeThresholds.clarityHigh) {
+        clarityScore = 0;
+      } else if (contrast >= CONFIG.CLARITY_MID_THRESHOLD) {
+        clarityScore = 1;
+      } else {
+        clarityScore = 2;
+      }
+
+      // 2. 框內能見度（0~2 分）
+      let visibilityScore = 0;
+      let visibilityNote = '光線適中';
+      if (meanGray >= CONFIG.VISIBILITY_GOOD_MIN && meanGray <= CONFIG.VISIBILITY_GOOD_MAX) {
+        visibilityScore = 0;
+        visibilityNote = '光線適中';
+      } else if (
+        (meanGray >= CONFIG.VISIBILITY_WARN_MIN && meanGray < CONFIG.VISIBILITY_GOOD_MIN) ||
+        (meanGray > CONFIG.VISIBILITY_GOOD_MAX && meanGray <= CONFIG.VISIBILITY_WARN_MAX)
+      ) {
+        visibilityScore = 1;
+        visibilityNote = meanGray < CONFIG.VISIBILITY_GOOD_MIN ? '略偏暗' : '略偏亮';
+      } else {
+        visibilityScore = 2;
+        visibilityNote = meanGray < CONFIG.VISIBILITY_WARN_MIN ? '嚴重過暗' : '嚴重過曝';
+      }
+
+      // 3. 完整度（0~1 分）：左、右、上、下任一側距影像邊緣小於對應尺寸 2%
+      const touchedSides = [];
+      if (topBox.x1 < imgWidth * CONFIG.EDGE_MARGIN_RATIO) touchedSides.push('左側');
+      if (imgWidth - topBox.x2 < imgWidth * CONFIG.EDGE_MARGIN_RATIO) touchedSides.push('右側');
+      if (topBox.y1 < imgHeight * CONFIG.EDGE_MARGIN_RATIO) touchedSides.push('上側');
+      if (imgHeight - topBox.y2 < imgHeight * CONFIG.EDGE_MARGIN_RATIO) touchedSides.push('下側');
+      const completenessScore = touchedSides.length > 0 ? 1 : 0;
+      const completenessText = touchedSides.length > 0
+        ? `貼近影像邊緣（${touchedSides.join('、')}）`
+        : '完整入鏡（四邊皆保留安全邊距）';
+
+      // 4. 視線盲區（0~1 分，限駕駛視角）：底邊距離 = (圖高 - (y + h)) / 圖高
+      const bottomDistRatio = (imgHeight - (topBox.y1 + topBox.h)) / imgHeight;
+      const blindSpotScore = bottomDistRatio < activeThresholds.blindSpotRatio ? 1 : 0;
+
+      // 5. 空間壓迫（0~1 分，限駕駛視角）：高度佔比 = h / 圖高
+      const heightRatio = topBox.h / imgHeight;
+      const oppressionScore = heightRatio > activeThresholds.oppressionRatio ? 1 : 0;
+
+      const totalScore = clarityScore + visibilityScore + completenessScore + blindSpotScore + oppressionScore;
+
+      // 風險等級判定
+      let riskLabel = '低風險';
+      let riskColor = '#2e7d32';
+      if (totalScore >= 4) {
+        riskLabel = '高風險';
+        riskColor = '#c62828';
+      } else if (totalScore >= 2) {
+        riskLabel = '中風險';
+        riskColor = '#ef6c00';
+      }
+
+      reportLevelEl.innerHTML = `<span class="badge" style="background-color:${riskColor};">${riskLabel}</span> 總分 ${totalScore} / 7`;
+
+      // 明細列
+      const metricsRows = [
+        {
+          name: '標線清晰度',
+          valueText: `對比 ${contrast}（門檻 ≥${activeThresholds.clarityHigh}）`,
+          scoreText: `${clarityScore} / 2`
+        },
+        {
+          name: '框內能見度',
+          valueText: `平均灰階 ${meanGray.toFixed(1)}（${visibilityNote}）`,
+          scoreText: `${visibilityScore} / 2`
+        },
+        {
+          name: '完整度',
+          valueText: completenessText,
+          scoreText: `${completenessScore} / 1`
+        },
+        {
+          name: '視線盲區（駕駛視角）',
+          valueText: `底邊距離比例 ${(bottomDistRatio * 100).toFixed(1)}%（門檻 <${(activeThresholds.blindSpotRatio * 100).toFixed(0)}%）`,
+          scoreText: `${blindSpotScore} / 1`
+        },
+        {
+          name: '空間壓迫（駕駛視角）',
+          valueText: `高度佔比 ${(heightRatio * 100).toFixed(1)}%（門檻 >${(activeThresholds.oppressionRatio * 100).toFixed(0)}%）`,
+          scoreText: `${oppressionScore} / 1`
+        }
+      ];
+
+      metricsRows.forEach((row) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><strong>${row.name}</strong></td>
+          <td>${row.valueText}</td>
+          <td><strong>${row.scoreText}</strong></td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      // 系統建議：只針對有得分的項目各列一條具體建議
+      const advices = [];
+      if (clarityScore > 0) {
+        advices.push(`【標線清晰度 ${clarityScore} 分】框內灰階對比僅 ${contrast}，顯示標線白漆有磨損或褪色情形，建議派工重新刨鋪或補繪高反光標線。`);
+      }
+      if (visibilityScore > 0) {
+        advices.push(`【框內能見度 ${visibilityScore} 分】平均灰階為 ${meanGray.toFixed(1)}（${visibilityNote}），建議檢視路口夜間路燈照明配置，或避開強光逆光時段重新取樣。`);
+      }
+      if (completenessScore > 0) {
+        advices.push(`【完整度 ${completenessScore} 分】斑馬線偵測框貼近畫面${touchedSides.join('、')}邊緣，可能存在局部裁切或障礙物遮擋，建議調整鏡頭視野確保標線完整入鏡。`);
+      }
+      if (blindSpotScore > 0) {
+        advices.push(`【視線盲區 ${blindSpotScore} 分】底邊距離比例僅 ${(bottomDistRatio * 100).toFixed(1)}%，車輛距離斑馬線極近、車頭前方存在視覺死角，行經時務必減速並留意近端行人。`);
+      }
+      if (oppressionScore > 0) {
+        advices.push(`【空間壓迫 ${oppressionScore} 分】斑馬線高度佔畫面 ${(heightRatio * 100).toFixed(1)}%，視覺逼近壓迫感高，建議提前減速以預留充足停讓煞車距離。`);
+      }
+
+      if (advices.length === 0) {
+        advices.push('目前各項硬體與視野指標皆為 0 分，標線狀態良好；通過行人穿越道時仍請減速慢行並留意左右來車與行人動態。');
+      }
+
+      advices.forEach((txt) => {
+        const li = document.createElement('li');
+        li.textContent = txt;
+        reportAdviceEl.appendChild(li);
+      });
+
+      lastDetectionState.reportTextCache = buildReportPlainText(
+        `共 ${boxes.length} 條斑馬線（最高信心 ${topConfPct}%）`,
+        `${riskLabel}（總分 ${totalScore} / 7）`,
+        metricsRows,
+        advices
+      );
+
+      reportEl.style.display = 'block';
+    }
+
+    function buildReportPlainText(targetStr, levelStr, rows, advices) {
+      const lines = [
+        '==================================================',
+        '靜態道路硬體危險度評估報告（市政府道路巡檢系統）',
+        '==================================================',
+        `產生時間：${new Date().toLocaleString('zh-TW')}`,
+        `辨識目標：${targetStr}`,
+        `風險等級：${levelStr}`,
+        '',
+        '【指標明細】'
+      ];
+
+      if (rows.length === 0) {
+        lines.push('- 未偵測到斑馬線，無法進行指標量化');
+      } else {
+        rows.forEach((r) => {
+          const cleanVal = r.valueText.replace(/≥/g, '>=').replace(/</g, '<').replace(/>/g, '>');
+          lines.push(`- ${r.name} | ${cleanVal} | ${r.scoreText}`);
+        });
+      }
+
+      lines.push('', '【系統建議】');
+      advices.forEach((a, idx) => {
+        lines.push(`${idx + 1}. ${a}`);
+      });
+
+      lines.push(
+        '',
+        '--------------------------------------------------',
+        '註：視線盲區與空間壓迫限駕駛視角（行車記錄器、鏡頭朝前水平拍攝）；門檻為教學示範用，僅供初步參考，不能取代現場勘查。'
+      );
+      return lines.join('\n');
+    }
+
+    // =========================================================================
+    // 6. 檔案上傳與推論主流程
+    // =========================================================================
+    imageInputEl.addEventListener('change', async (event) => {
+      const file = event.target.files && event.target.files[0];
+      if (!file) return;
+      if (!ortSession) {
+        statusEl.textContent = '模型尚未載入完成，請稍候再試。';
+        return;
+      }
+
+      // 開始新的辨識時先隱藏報告
+      reportEl.style.display = 'none';
+      statusEl.textContent = '正在讀取影像並執行 AI 斑馬線辨識推論...';
+      statusEl.style.color = '#0f294a';
+
+      const objectUrl = URL.createObjectURL(file);
+
+      try {
+        const img = await new Promise((resolve, reject) => {
+          const image = new Image();
+          image.onload = () => resolve(image);
+          image.onerror = () => reject(new Error('影像檔案解碼失敗，請確認檔案格式是否正確。'));
+          image.src = objectUrl;
+        });
+
+        // 1. 前處理
+        const meta = preprocessImage(img);
+
+        // 2. ONNX 推論
+        const feeds = { images: meta.tensor };
+        const results = await ortSession.run(feeds);
+        const firstOutputKey = Object.keys(results)[0];
+        const outputTensor = results[firstOutputKey];
+
+        // 3. 後處理（信心過濾 + 座標還原 + 單類別 NMS）
+        const detectedBoxes = postprocessOutput(outputTensor, meta);
+
+        // 4. 繪製辨識結果於 outputCanvas
+        drawDetections(img, detectedBoxes);
+
+        // 5. 更新狀態文字
+        statusEl.textContent = `辨識完成！共偵測到 ${detectedBoxes.length} 條斑馬線（信心門檻 >= ${(CONFIG.CONF_THRESHOLD * 100).toFixed(0)}%）。`;
+        statusEl.style.color = detectedBoxes.length > 0 ? '#2e7d32' : '#ef6c00';
+
+        // 保存最新狀態供滑桿動態重算與下載
+        lastDetectionState.imageElement = img;
+        lastDetectionState.boxes = detectedBoxes;
+        lastDetectionState.imgWidth = meta.origW;
+        lastDetectionState.imgHeight = meta.origH;
+
+        // 6. 產生並顯示評估報告
+        evaluateAndRenderReport();
+      } catch (err) {
+        console.error('推論流程發生錯誤:', err);
+        statusEl.textContent = `辨識發生錯誤：${err.message || err}`;
+        statusEl.style.color = '#c62828';
+      } finally {
+        // 推論完成後釋放 object URL
+        URL.revokeObjectURL(objectUrl);
+      }
+    });
+
+    // =========================================================================
+    // 7. 擴充模組一：門檻調整滑桿事件
+    // =========================================================================
+    function handleSliderUpdate() {
+      activeThresholds.blindSpotRatio = parseFloat(sliderBlindSpot.value);
+      activeThresholds.oppressionRatio = parseFloat(sliderOppression.value);
+      activeThresholds.clarityHigh = parseInt(sliderClarity.value, 10);
+
+      valBlindSpot.textContent = activeThresholds.blindSpotRatio.toFixed(2);
+      valOppression.textContent = activeThresholds.oppressionRatio.toFixed(2);
+      valClarity.textContent = activeThresholds.clarityHigh;
+
+      if (lastDetectionState.imageElement) {
+        evaluateAndRenderReport();
+      }
+    }
+
+    sliderBlindSpot.addEventListener('input', handleSliderUpdate);
+    sliderOppression.addEventListener('input', handleSliderUpdate);
+    sliderClarity.addEventListener('input', handleSliderUpdate);
+
+    resetThresholdsBtn.addEventListener('click', () => {
+      sliderBlindSpot.value = CONFIG.BLIND_SPOT_RATIO;
+      sliderOppression.value = CONFIG.OPPRESSION_RATIO;
+      sliderClarity.value = CONFIG.CLARITY_HIGH_THRESHOLD;
+      handleSliderUpdate();
+    });
+
+    // =========================================================================
+    // 8. 擴充模組二：下載標註圖片 (PNG) 與報告文字 (.txt)
+    // =========================================================================
+    downloadImgBtn.addEventListener('click', () => {
+      if (!outputCanvasEl.width || !outputCanvasEl.height) return;
+      outputCanvasEl.toBlob((blob) => {
+        if (!blob) return;
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `crosswalk_inspection_${Date.now()}.png`;
+        a.click();
+        URL.revokeObjectURL(url);
+      }, 'image/png');
+    });
+
+    downloadTxtBtn.addEventListener('click', () => {
+      if (!lastDetectionState.reportTextCache) return;
+      const blob = new Blob([lastDetectionState.reportTextCache], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `road_hazard_report_${Date.now()}.txt`;
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+
+    // 啟動載入模型
+    window.addEventListener('DOMContentLoaded', initModel);
+  </script>
+</body>
+</html>
